@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#17130e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Anchor">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/png" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<title>Anchor — body skill check-in</title>
+<style>
+/* ============ Fonts (self-hosted, offline) ============ */
+@font-face{
+  font-family:'Fraunces';
+  src:url('./fonts/Fraunces.woff2') format('woff2');
+  font-weight:100 900; font-style:normal; font-display:swap;
+}
+@font-face{
+  font-family:'Karla';
+  src:url('./fonts/Karla.woff2') format('woff2');
+  font-weight:200 800; font-style:normal; font-display:swap;
+}
+
+/* ============ Tokens — dusk study ============ */
+:root{
+  --bg:#17130e;
+  --surface:#1e1912;
+  --surface2:#272016;
+  --surface3:#31281c;
+  --line:rgba(230,213,184,.09);
+  --line-strong:rgba(230,213,184,.18);
+  --text:#efe7d8;
+  --muted:#a79a80;
+  --faint:#6f6553;
+  --sage:#aab98e;
+  --sage-deep:#6d7d52;
+  --sage-dim:rgba(170,185,142,.14);
+  --sand:#e6c98f;
+  --clay:#c98a66;
+  --pad:22px;
+  --radius:18px;
+  --ease:cubic-bezier(.32,.72,.28,1);
+}
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{font-size:16px}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Karla',sans-serif;
+  font-weight:400;
+  line-height:1.7;
+  min-height:100dvh;
+  overflow-x:hidden;
+}
+/* layered dusk wash */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(120% 70% at 50% -10%, rgba(109,125,82,.16), transparent 55%),
+    radial-gradient(90% 60% at 85% 110%, rgba(230,201,143,.07), transparent 60%),
+    radial-gradient(70% 50% at 0% 100%, rgba(201,138,102,.05), transparent 55%);
+}
+/* grain */
+body::after{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.app{
+  position:relative;z-index:1;
+  max-width:480px;margin:0 auto;
+  min-height:100dvh;
+  display:flex;flex-direction:column;
+  padding:calc(14px + env(safe-area-inset-top)) var(--pad) calc(28px + env(safe-area-inset-bottom));
+}
+
+/* ============ Type ============ */
+.display{
+  font-family:'Fraunces',serif;
+  font-variation-settings:'opsz' 60;
+  font-weight:500;
+  letter-spacing:-0.03em;
+  line-height:1.15;
+}
+h1.q{font-size:1.9rem;margin-bottom:10px}
+.sub{color:var(--muted);font-size:.98rem;line-height:1.6;margin-bottom:26px}
+.kicker{
+  font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--sage);font-weight:700;margin-bottom:14px;
+}
+
+/* ============ Top bar / progress ============ */
+.top{
+  display:flex;align-items:center;justify-content:space-between;
+  min-height:44px;margin-bottom:8px;
+}
+.wordmark{
+  font-family:'Fraunces',serif;font-weight:600;font-size:1.15rem;
+  letter-spacing:-0.02em;color:var(--text);
+}
+.wordmark i{font-style:normal;color:var(--sage)}
+.topbtn{
+  background:none;border:none;color:var(--muted);font-family:'Karla',sans-serif;
+  font-size:.85rem;font-weight:600;padding:10px 12px;cursor:pointer;border-radius:12px;
+}
+.topbtn:hover{color:var(--text)}
+.topbtn:focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+.topbtn:active{transform:scale(.96)}
+.progress{display:flex;gap:5px;margin:2px 0 26px;height:3px}
+.progress[hidden]{display:none}
+.progress i{flex:1;background:var(--line);border-radius:2px;transition:opacity .4s var(--ease)}
+.progress i.on{background:var(--sage-deep)}
+.progress i.now{background:var(--sage)}
+
+/* ============ Screen shell ============ */
+#screen{flex:1;display:flex;flex-direction:column}
+.body{flex:1;display:flex;flex-direction:column}
+.foot{margin-top:28px;display:flex;flex-direction:column;gap:12px}
+
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.anim{animation:rise .45s var(--ease) both}
+.anim.d1{animation-delay:.06s}.anim.d2{animation-delay:.12s}.anim.d3{animation-delay:.18s}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+/* ============ Buttons ============ */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;padding:17px 20px;border-radius:16px;
+  font-family:'Karla',sans-serif;font-size:1.02rem;font-weight:700;
+  border:1px solid transparent;cursor:pointer;
+  transition:transform .15s var(--ease),opacity .2s;
+}
+.btn:active{transform:scale(.975)}
+.btn:focus-visible{outline:2px solid var(--sand);outline-offset:3px}
+.btn-primary{
+  background:linear-gradient(180deg,#b6c49b,#9aab7c);
+  color:#1c1a10;
+  box-shadow:0 10px 30px -10px rgba(154,171,124,.45),0 2px 8px -2px rgba(154,171,124,.3);
+}
+.btn-primary:hover{box-shadow:0 14px 36px -10px rgba(154,171,124,.55)}
+.btn-ghost{background:transparent;color:var(--muted);border-color:var(--line-strong)}
+.btn-ghost:hover{color:var(--text);border-color:var(--muted)}
+.btn-quiet{background:transparent;color:var(--faint);border:none;font-weight:600;padding:10px}
+.btn-quiet:hover{color:var(--muted)}
+.btn-sand{
+  background:linear-gradient(180deg,#efd6a2,#e0c184);color:#241c0d;
+  box-shadow:0 10px 30px -10px rgba(230,201,143,.4);
+}
+.btn[disabled]{opacity:.4;pointer-events:none}
+
+/* home hero buttons */
+.hero-btn{
+  display:block;width:100%;text-align:left;
+  padding:24px 22px;border-radius:22px;cursor:pointer;
+  border:1px solid var(--line);
+  background:linear-gradient(160deg,var(--surface2),var(--surface));
+  box-shadow:0 18px 44px -18px rgba(0,0,0,.55),inset 0 1px 0 rgba(239,231,216,.05);
+  transition:transform .18s var(--ease),border-color .2s;
+}
+.hero-btn:hover{border-color:var(--line-strong)}
+.hero-btn:active{transform:scale(.98)}
+.hero-btn:focus-visible{outline:2px solid var(--sage);outline-offset:3px}
+.hero-btn .t{font-family:'Fraunces',serif;font-weight:500;font-size:1.45rem;letter-spacing:-0.02em;color:var(--text);display:block;margin-bottom:4px}
+.hero-btn .d{color:var(--muted);font-size:.92rem;line-height:1.5}
+.hero-btn.flood{border-color:rgba(201,138,102,.28);background:linear-gradient(160deg,#2a2015,var(--surface))}
+.hero-btn.flood .t{color:var(--sand)}
+
+/* ============ Inputs ============ */
+textarea,input[type=text],input[type=url],input[type=password],input[type=number]{
+  width:100%;background:var(--surface);color:var(--text);
+  border:1px solid var(--line-strong);border-radius:16px;
+  font-family:'Karla',sans-serif;font-size:1.05rem;line-height:1.6;
+  padding:16px 18px;resize:none;
+}
+textarea{min-height:130px}
+textarea:focus,input:focus{outline:none;border-color:var(--sage);box-shadow:0 0 0 3px var(--sage-dim)}
+::placeholder{color:var(--faint)}
+label.fl{display:block;font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:16px}
+.chip{
+  padding:11px 16px;border-radius:100px;font-family:'Karla',sans-serif;
+  font-size:.95rem;font-weight:600;color:var(--muted);
+  background:var(--surface);border:1px solid var(--line-strong);cursor:pointer;
+  transition:transform .12s var(--ease);
+}
+.chip:active{transform:scale(.94)}
+.chip:focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+.chip.on{background:var(--sage-dim);border-color:var(--sage);color:var(--sage)}
+
+/* choice rows (radio-like) */
+.choices{display:flex;flex-direction:column;gap:10px}
+.choice{
+  text-align:left;padding:17px 18px;border-radius:16px;cursor:pointer;
+  background:var(--surface);border:1px solid var(--line-strong);
+  font-family:'Karla',sans-serif;font-size:1rem;font-weight:600;color:var(--text);
+  transition:transform .12s var(--ease);
+}
+.choice .cd{display:block;font-weight:400;font-size:.88rem;color:var(--muted);margin-top:2px}
+.choice:active{transform:scale(.98)}
+.choice:focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+.choice.on{border-color:var(--sage);background:var(--sage-dim)}
+
+/* ============ SUDS slider ============ */
+.suds{margin:8px 0 6px;text-align:center}
+.suds .big{
+  font-family:'Fraunces',serif;font-weight:400;font-size:5.4rem;line-height:1;
+  color:var(--sand);letter-spacing:-0.04em;
+  font-variation-settings:'opsz' 100;
+}
+.suds .lbl{color:var(--muted);font-size:.92rem;margin-bottom:26px;min-height:1.4em}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:44px;background:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-runnable-track{
+  height:8px;border-radius:6px;
+  background:linear-gradient(90deg,var(--sage-deep),var(--sand) 60%,var(--clay));
+  opacity:.85;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:32px;height:32px;border-radius:50%;
+  background:var(--text);border:4px solid var(--bg);
+  margin-top:-12px;box-shadow:0 4px 14px rgba(0,0,0,.5);
+}
+input[type=range]:focus-visible{outline:2px solid var(--sand);outline-offset:4px;border-radius:8px}
+.scale-ends{display:flex;justify-content:space-between;color:var(--faint);font-size:.78rem;margin-top:2px}
+
+/* ============ Grounding ============ */
+.sense-count{
+  font-family:'Fraunces',serif;font-size:4.6rem;font-weight:400;line-height:1;
+  color:var(--sage);letter-spacing:-0.04em;margin-bottom:2px;
+}
+.sense-list{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.sense-list input{padding:13px 16px;font-size:1rem}
+
+/* ============ Pause / timer ============ */
+.timer-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.timer{
+  font-family:'Fraunces',serif;font-weight:300;font-size:5.6rem;letter-spacing:-0.03em;
+  color:var(--text);line-height:1;font-variation-settings:'opsz' 120;
+}
+.timer-note{color:var(--muted);margin-top:14px;font-size:.95rem;max-width:280px}
+.durs{display:flex;gap:9px;justify-content:center;margin:20px 0 6px}
+.durs .chip{padding:10px 18px}
+/* breath pacer */
+.pacer{
+  width:120px;height:120px;border-radius:50%;margin:30px auto 6px;
+  background:radial-gradient(circle at 38% 32%, rgba(170,185,142,.5), rgba(109,125,82,.25) 70%);
+  border:1px solid var(--sage);
+  animation:breathe 10s var(--ease) infinite;
+  transform-origin:center;
+}
+@keyframes breathe{
+  0%{transform:scale(.68)} 40%{transform:scale(1)} 100%{transform:scale(.68)}
+}
+.pacer-lbl{color:var(--sage);font-size:.85rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+
+/* ============ Cards (reframe, history) ============ */
+.card{
+  background:linear-gradient(160deg,var(--surface2),var(--surface));
+  border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px;margin-bottom:12px;
+  box-shadow:0 14px 34px -16px rgba(0,0,0,.5);
+}
+.story-card{cursor:pointer;transition:transform .15s var(--ease),border-color .2s;text-align:left;width:100%;font-family:'Karla',sans-serif}
+.story-card:active{transform:scale(.98)}
+.story-card:focus-visible{outline:2px solid var(--sage);outline-offset:2px}
+.story-card.on{border-color:var(--sage);background:linear-gradient(160deg,#252a1c,var(--surface))}
+.story-card .s{display:block;font-size:1.02rem;color:var(--text);line-height:1.55}
+.story-card .b{display:block;font-size:.82rem;color:var(--sage);margin-top:8px;font-weight:600}
+.spin{
+  width:26px;height:26px;border-radius:50%;margin:34px auto;
+  border:3px solid var(--line-strong);border-top-color:var(--sage);
+  animation:sp 1s linear infinite;
+}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* history */
+.hrow{display:flex;align-items:center;gap:14px;padding:15px 2px;border-bottom:1px solid var(--line);cursor:pointer;background:none;border-left:none;border-right:none;border-top:none;width:100%;text-align:left;font-family:'Karla',sans-serif}
+.hrow:focus-visible{outline:2px solid var(--sage);outline-offset:-2px}
+.hrow .when{flex:1}
+.hrow .when .d{color:var(--text);font-weight:600;font-size:.98rem}
+.hrow .when .t{color:var(--faint);font-size:.82rem}
+.arc{font-family:'Fraunces',serif;font-size:1.25rem;color:var(--sand);white-space:nowrap}
+.arc small{color:var(--faint);font-family:'Karla',sans-serif;font-size:.7rem}
+.tag{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 9px;border-radius:6px}
+.tag.flood{background:rgba(201,138,102,.15);color:var(--clay)}
+.tag.unsynced{background:rgba(230,201,143,.12);color:var(--sand)}
+.tag.synced{background:var(--sage-dim);color:var(--sage)}
+
+.detail dt{font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--sage);margin-top:16px}
+.detail dd{color:var(--text);font-size:.96rem;line-height:1.6;margin-top:3px}
+.detail dd.empty{color:var(--faint);font-style:italic}
+
+/* toast */
+#toast{
+  position:fixed;left:50%;bottom:calc(30px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
+  background:var(--surface3);border:1px solid var(--line-strong);color:var(--text);
+  padding:12px 20px;border-radius:14px;font-size:.92rem;font-weight:600;
+  opacity:0;pointer-events:none;transition:opacity .3s,transform .3s var(--ease);z-index:50;
+  max-width:88vw;text-align:center;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;flex:1}
+.done-mark{
+  width:74px;height:74px;border-radius:50%;margin-bottom:26px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--sage-dim);border:1px solid var(--sage);
+  color:var(--sage);font-size:1.9rem;
+}
+hr.sep{border:none;border-top:1px solid var(--line);margin:20px 0}
+.note{font-size:.85rem;color:var(--faint);line-height:1.55}
+a{color:var(--sage)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="wordmark" id="brand">anchor<i>.</i></div>
+    <div>
+      <button class="topbtn" id="btnHistory" aria-label="History">History</button>
+      <button class="topbtn" id="btnSettings" aria-label="Settings">Settings</button>
+    </div>
+  </div>
+  <div class="progress" id="progress" hidden></div>
+  <main id="screen"></main>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   Anchor — body-skill check-in
+   State machine over a linear step list; localStorage is source of truth.
+   ===================================================================== */
+
+const LS = {
+  get(k, fb){ try{ const v = localStorage.getItem(k); return v==null ? fb : JSON.parse(v); }catch(e){ return fb; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+
+const SETTINGS_KEY='anchor_settings', ENTRIES_KEY='anchor_entries', ACTIVE_KEY='anchor_active';
+
+let settings = LS.get(SETTINGS_KEY, { endpoint:'', secret:'', pauseDefault:20 });
+let entries  = LS.get(ENTRIES_KEY, []);
+let active   = LS.get(ACTIVE_KEY, null);   // in-flight session
+let view     = 'home';                     // home | flow | history | settings | detail
+let timerInterval = null;
+
+/* ---------- step lists ---------- */
+const GROUND = ['g_see','g_touch','g_hear','g_smell','g_taste'];
+const FACTS  = ['facts_mean','facts_know','facts_alt','facts_fit'];
+const TAIL   = ['urge_after','suds_pause','acted','helped','escalate','escalate_do','suds_final','reframe','close','done'];
+
+const FLOW = {
+  full:    ['trigger','body','emotion','suds_before','fears','floatback','urges','urge_before',...FACTS,...GROUND,'suds_ground','pause',...TAIL],
+  flooded: ['suds_before',...GROUND,'suds_ground','pause','trigger','body','emotion','fears','floatback','urges','urge_before',...FACTS,...TAIL]
+};
+
+/* ---------- chip banks ---------- */
+const BODY_CHIPS   = ['Chest tight','Heart racing','Throat closing','Stomach knot','Jaw clenched','Hands restless','Shallow breath','Hot face','Heavy limbs','Buzzing / wired'];
+const EMOTION_CHIPS= ['Fear','Shame','Anger','Sadness','Jealousy','Abandonment','Rejection','Loneliness','Panic','Numb'];
+const URGE_CHIPS   = ['Distract myself','Overthink it','Check my phone','Text them again','Withdraw','Snap at someone','Eat / drink','Doomscroll','Cancel plans','Shut down'];
+
+const SENSES = {
+  g_see:  {n:5,verb:'see',    prompt:'Look around slowly.'},
+  g_touch:{n:4,verb:'touch',  prompt:'Reach out. Notice texture and temperature.'},
+  g_hear: {n:3,verb:'hear',   prompt:'Close your eyes if it helps.'},
+  g_smell:{n:2,verb:'smell',  prompt:'Breathe in through your nose.'},
+  g_taste:{n:1,verb:'taste',  prompt:'Even the taste of your own mouth counts.'}
+};
+
+/* ---------- helpers ---------- */
+const $ = sel => document.querySelector(sel);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'e-'+Date.now()+'-'+Math.random().toString(36).slice(2,10));
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2600); }
+function timeOfDay(d){ const h=d.getHours(); return h<5?'night':h<12?'morning':h<17?'afternoon':h<22?'evening':'night'; }
+function fmtDate(iso){ const d=new Date(iso); return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'}); }
+function fmtTime(iso){ const d=new Date(iso); return d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}); }
+function saveActive(){ if(active) LS.set(ACTIVE_KEY, active); else LS.del(ACTIVE_KEY); }
+function saveEntries(){ LS.set(ENTRIES_KEY, entries); }
+function saveSettings(){ LS.set(SETTINGS_KEY, settings); }
+
+/* =====================================================================
+   Session lifecycle
+   ===================================================================== */
+function startSession(mode){
+  active = {
+    mode, step:0,
+    data:{
+      entry_id: uuid(), mode,
+      started_at: new Date().toISOString(),
+      trigger:'', body:[], body_other:'', emotions:[], emotions_other:'',
+      distress_before:null, fears:'', floatback:'', urges:[], urges_other:'', urge_before:null,
+      interpretation:'', facts_known:'', alt_explanation:'', fits_facts:'',
+      grounding:{see:[],touch:[],hear:[],smell:[],taste:[]}, grounding_completed:false,
+      distress_after_grounding:null,
+      pause_minutes:null, pause_completed:false, pause_ends_at:null,
+      urge_after:null, distress_after_pause:null, acted_on_urge:'', what_helped:'',
+      escalation_used:'', distress_final:null,
+      ai_suggestions:'', chosen_story:'', closing_note:''
+    }
+  };
+  saveActive();
+  view='flow'; render();
+}
+
+function stepId(){ return FLOW[active.mode][active.step]; }
+
+function next(skipSave){
+  const list = FLOW[active.mode];
+  let i = active.step + 1;
+  // conditional skip of the escalation branch
+  while(i < list.length){
+    const id = list[i];
+    if((id==='escalate' || id==='escalate_do' || id==='suds_final') && !needsEscalation()) { i++; continue; }
+    if(id==='escalate_do' && !active.data.escalation_used){ i++; continue; }
+    break;
+  }
+  active.step = Math.min(i, list.length-1);
+  saveActive(); render();
+}
+function back(){
+  const list = FLOW[active.mode];
+  let i = active.step - 1;
+  while(i > 0){
+    const id = list[i];
+    if((id==='escalate' || id==='escalate_do' || id==='suds_final') && !needsEscalation()){ i--; continue; }
+    if(id==='escalate_do' && !active.data.escalation_used){ i--; continue; }
+    break;
+  }
+  active.step = Math.max(i, 0);
+  saveActive(); render();
+}
+function needsEscalation(){
+  return active && active.data.urge_after != null && active.data.urge_after >= 6;
+}
+
+function finishSession(){
+  const d = active.data;
+  d.finished_at = new Date().toISOString();
+  if(d.distress_final==null) d.distress_final = d.distress_after_pause;
+  d.duration_minutes = Math.max(1, Math.round((new Date(d.finished_at) - new Date(d.started_at))/60000));
+  const st = new Date(d.started_at);
+  d.weekday = st.toLocaleDateString('en-US',{weekday:'long'});
+  d.time_of_day = timeOfDay(st);
+  d.synced = false;
+  delete d.pause_ends_at;
+  entries.unshift(d);
+  saveEntries();
+  active = null; saveActive();
+  syncQueue();
+}
+
+function abandonSession(){
+  // a half-finished entry is still worth saving
+  const d = active.data;
+  const touched = d.trigger || d.distress_before!=null || d.fears || (d.body&&d.body.length);
+  if(touched){
+    d.finished_at = new Date().toISOString();
+    d.abandoned = true;
+    d.duration_minutes = Math.max(1, Math.round((new Date(d.finished_at)-new Date(d.started_at))/60000));
+    const st=new Date(d.started_at); d.weekday=st.toLocaleDateString('en-US',{weekday:'long'}); d.time_of_day=timeOfDay(st);
+    d.synced=false; delete d.pause_ends_at;
+    entries.unshift(d); saveEntries(); syncQueue();
+    toast('Saved as partial entry');
+  }
+  active=null; saveActive(); view='home'; render();
+}
+
+/* =====================================================================
+   Sync — Apps Script endpoint; localStorage queue, idempotent by entry_id
+   ===================================================================== */
+async function postAPI(payload){
+  if(!settings.endpoint) throw new Error('No endpoint configured');
+  const res = await fetch(settings.endpoint, {
+    method:'POST', redirect:'follow',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},   // simple request → no preflight
+    body: JSON.stringify(Object.assign({secret: settings.secret}, payload))
+  });
+  const out = await res.json();
+  if(out.result==='error') throw new Error(out.message||'Server error');
+  return out;
+}
+
+let syncing=false;
+async function syncQueue(){
+  if(syncing || !settings.endpoint || !navigator.onLine) {
+    if(view==='home'||view==='history') render();
+    return;
+  }
+  syncing=true;
+  let sent=0;
+  for(const e of entries.filter(x=>!x.synced)){
+    try{
+      await postAPI({action:'log', entry:e});
+      e.synced=true; sent++;
+      saveEntries();
+    }catch(err){ break; }   // stop on first failure, retry later
+  }
+  syncing=false;
+  if(sent) toast(sent + (sent===1?' entry':' entries') + ' synced to your Sheet');
+  if(view==='home'||view==='history') render();
+}
+window.addEventListener('online', syncQueue);
+
+/* =====================================================================
+   Rendering
+   ===================================================================== */
+function render(){
+  clearInterval(timerInterval);
+  const scr = $('#screen');
+  const prog = $('#progress');
+  if(view==='flow' && active){
+    const list = FLOW[active.mode];
+    prog.hidden=false;
+    prog.innerHTML = list.map((s,i)=>{
+      const skip = (s==='escalate'||s==='escalate_do'||s==='suds_final') && !needsEscalation();
+      return skip?'':'<i class="'+(i<active.step?'on':i===active.step?'now':'')+'"></i>';
+    }).join('');
+  } else prog.hidden=true;
+
+  if(view==='home')      return renderHome(scr);
+  if(view==='history')   return renderHistory(scr);
+  if(view==='settings')  return renderSettings(scr);
+  if(view==='flow'){
+    if(!active){ view='home'; return renderHome(scr); }  // session ended elsewhere
+    return renderStep(scr);
+  }
+}
+
+/* ---------- home ---------- */
+function renderHome(scr){
+  const unsynced = entries.filter(e=>!e.synced).length;
+  const resume = active ? `
+    <div class="card anim" style="border-color:var(--sage)">
+      <div style="font-weight:700;margin-bottom:4px">A check-in is in progress</div>
+      <div class="note" style="margin-bottom:14px">You were on step ${active.step+1}. Pick up where you left off.</div>
+      <button class="btn btn-primary" onclick="view='flow';render()">Resume check-in</button>
+      <button class="btn btn-quiet" onclick="abandonSession()">Discard / save partial</button>
+    </div>` : '';
+  scr.innerHTML = `
+    <div class="body">
+      ${resume}
+      <div style="margin:${active?'8':'26'}px 0 30px" class="anim">
+        <h1 class="display" style="font-size:2.3rem;line-height:1.12">Come back to<br>your body.</h1>
+        <p class="sub" style="margin:12px 0 0">A guided check-in for the moments that grab you.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <button class="hero-btn anim d1" onclick="startSession('full')">
+          <span class="t">Start a check-in</span>
+          <span class="d">Walk through the full body skill, step by step.</span>
+        </button>
+        <button class="hero-btn flood anim d2" onclick="startSession('flooded')">
+          <span class="t">I'm flooded</span>
+          <span class="d">Skip the writing. Ground first — words later.</span>
+        </button>
+      </div>
+      <div style="flex:1"></div>
+      <div class="note anim d3" style="text-align:center;padding:20px 0 4px">
+        ${entries.length ? entries.length+' check-in'+(entries.length===1?'':'s')+' logged' : 'Your entries stay on this phone and sync to your private Sheet.'}
+        ${unsynced? ' · <span style="color:var(--sand)">'+unsynced+' waiting to sync</span>':''}
+      </div>
+    </div>`;
+}
+
+/* ---------- flow steps ---------- */
+function shell(kicker, q, sub, bodyHTML, footHTML){
+  return `
+    <div class="body anim">
+      <div class="kicker">${kicker}</div>
+      <h1 class="q display">${q}</h1>
+      ${sub?'<p class="sub">'+sub+'</p>':''}
+      ${bodyHTML}
+    </div>
+    <div class="foot">${footHTML}</div>`;
+}
+function navBtns(nextLabel){
+  return `
+    <button class="btn btn-primary" id="nx">${nextLabel||'Next'}</button>
+    <div style="display:flex;justify-content:space-between">
+      <button class="btn btn-quiet" id="bk" style="width:auto">Back</button>
+      <button class="btn btn-quiet" id="quit" style="width:auto">Save &amp; exit</button>
+    </div>`;
+}
+function wireNav(onNext){
+  $('#nx') && ($('#nx').onclick = ()=>{ onNext&&onNext(); next(); });
+  $('#bk') && ($('#bk').onclick = ()=>{ onNext&&onNext(); back(); });
+  $('#quit') && ($('#quit').onclick = ()=>{ onNext&&onNext(); abandonSession(); });
+}
+function chipGroup(bank, selected){
+  return '<div class="chips">'+bank.map(c=>`<button class="chip ${selected.includes(c)?'on':''}" data-c="${esc(c)}">${esc(c)}</button>`).join('')+'</div>';
+}
+function wireChips(container, arr){
+  container.querySelectorAll('.chip').forEach(ch=>{
+    ch.onclick=()=>{
+      const c=ch.dataset.c, i=arr.indexOf(c);
+      if(i>=0) arr.splice(i,1); else arr.push(c);
+      ch.classList.toggle('on');
+      saveActive();
+    };
+  });
+}
+function sudsBlock(val){
+  const labels=['Calm — barely anything','Very mild','Mild','Noticeable','Uncomfortable','Distressing','Hard to think straight','Very intense','Severe','Overwhelming','The worst it gets'];
+  return `
+    <div class="suds">
+      <div class="big" id="sudsNum">${val==null?5:val}</div>
+      <div class="lbl" id="sudsLbl">${labels[val==null?5:val]}</div>
+      <input type="range" min="0" max="10" step="1" value="${val==null?5:val}" id="sudsRange" aria-label="0 to 10">
+      <div class="scale-ends"><span>0 · calm</span><span>10 · worst</span></div>
+    </div>`;
+}
+function wireSuds(assign){
+  const r=$('#sudsRange');
+  const labels=['Calm — barely anything','Very mild','Mild','Noticeable','Uncomfortable','Distressing','Hard to think straight','Very intense','Severe','Overwhelming','The worst it gets'];
+  const upd=()=>{ $('#sudsNum').textContent=r.value; $('#sudsLbl').textContent=labels[+r.value]; assign(+r.value); saveActive(); };
+  r.oninput=upd; upd();
+}
+
+function renderStep(scr){
+  const id = stepId(), d = active.data;
+  const N = FLOW[active.mode].length;
+
+  /* --- free-text steps --- */
+  const textSteps = {
+    trigger:  {k:'The trigger', q:'What just happened?', s:'Name the event, plainly. Just the facts of it.', ph:'e.g. My partner hasn’t replied to my text since this morning…', field:'trigger'},
+    fears:    {k:'The fear',    q:'What fears is this bringing up?', s:'What is the scared part of you saying this means?', ph:'e.g. She doesn’t love me anymore…', field:'fears'},
+    floatback:{k:'The echo',    q:'When did you feel this before?', s:'Let your mind drift back. When is the earliest or strongest time this exact feeling showed up?', ph:'e.g. When my ex ghosted me… or further back…', field:'floatback'},
+    facts_mean:{k:'Check the facts · 1 of 4', q:'What am I telling myself this means?', s:'The story under the fear, in one or two lines.', ph:'e.g. If she loved me she’d have answered by now…', field:'interpretation'},
+    facts_know:{k:'Check the facts · 2 of 4', q:'What do I actually know?', s:'Only things you could prove to a stranger. No mind-reading.', ph:'e.g. She hasn’t replied in 4 hours. She said she had back-to-back meetings today…', field:'facts_known'},
+    facts_alt:{k:'Check the facts · 3 of 4', q:'What else could explain it?', s:'One other explanation that also fits the same facts.', ph:'e.g. She’s slammed at work and hasn’t looked at her phone…', field:'alt_explanation'},
+    helped:   {k:'Looking back', q:'What helped — and what knocked you off?', s:'So future-you knows what to reach for.', ph:'e.g. The grounding helped. Checking her last-seen made it worse…', field:'what_helped'},
+    close:    {k:'Closing',     q:'A word for the you from back then', s:'You touched an old memory earlier. Before you finish — what would you say to that version of you, knowing what you know now?', ph:'e.g. That was then. You survived it, and this is not that…', field:'closing_note'}
+  };
+
+  if(textSteps[id]){
+    const t = textSteps[id];
+    scr.innerHTML = shell(t.k, t.q, t.s, `<textarea id="tx" placeholder="${t.ph}">${esc(d[t.field])}</textarea>`, navBtns(id==='close'?'Finish this step':'Next'));
+    const save=()=>{ d[t.field]=$('#tx').value.trim(); saveActive(); };
+    $('#tx').addEventListener('input',()=>{ d[t.field]=$('#tx').value; saveActive(); });
+    wireNav(save);
+    return;
+  }
+
+  /* --- chip steps --- */
+  if(id==='body'||id==='emotion'||id==='urges'){
+    const cfg = {
+      body:   {k:'The body', q:'Where do you feel it?', s:'Scan from head to belly. Tap what’s true, add anything else.', bank:BODY_CHIPS, arr:d.body, other:'body_other', ph:'Anything else you notice…'},
+      emotion:{k:'The feeling', q:'What would you call this feeling?', s:'Naming an emotion turns the volume down. Pick every one that fits.', bank:EMOTION_CHIPS, arr:d.emotions, other:'emotions_other', ph:'Another word for it…'},
+      urges:  {k:'The urge', q:'What do you want to do right now?', s:'No judgment — just notice the pull.', bank:URGE_CHIPS, arr:d.urges, other:'urges_other', ph:'Another urge…'}
+    }[id];
+    scr.innerHTML = shell(cfg.k, cfg.q, cfg.s,
+      chipGroup(cfg.bank, cfg.arr) + `<input type="text" id="oth" placeholder="${cfg.ph}" value="${esc(d[cfg.other])}">`,
+      navBtns());
+    wireChips(scr, cfg.arr);
+    $('#oth').addEventListener('input',()=>{ d[cfg.other]=$('#oth').value; saveActive(); });
+    wireNav(()=>{ d[cfg.other]=$('#oth').value.trim(); });
+    return;
+  }
+
+  /* --- SUDS steps --- */
+  const sudsSteps = {
+    suds_before:{k:'Intensity', q:'How intense is it, right now?', s:'0 is calm, 10 is the worst it gets. Gut answer.', field:'distress_before'},
+    suds_ground:{k:'Intensity · after grounding', q:'And now — how intense?', s:'Same scale. There’s no right answer; the number is just information.', field:'distress_after_grounding'},
+    urge_before:{k:'The urge', q:'How strong is the pull?', s:'How hard is the urge pushing you to act, 0 to 10?', field:'urge_before'},
+    urge_after: {k:'After the pause', q:'Do you still feel the urge?', s:'Same urge, same scale. Urges crest and fall like waves — where is yours now?', field:'urge_after'},
+    suds_pause: {k:'After the pause', q:'And the feeling itself?', s:'The distress, 0 to 10.', field:'distress_after_pause'},
+    suds_final: {k:'After the reset', q:'Where is it now?', s:'One more read, after that skill.', field:'distress_final'}
+  };
+  if(sudsSteps[id]){
+    const t=sudsSteps[id];
+    scr.innerHTML = shell(t.k, t.q, t.s, sudsBlock(d[t.field]), navBtns());
+    wireSuds(v=>{ d[t.field]=v; });
+    wireNav();
+    return;
+  }
+
+  /* --- fits the facts --- */
+  if(id==='facts_fit'){
+    scr.innerHTML = shell('Check the facts · 4 of 4','Does the emotion fit the facts?','Given only what you actually know — not the story — does the size of this feeling match?',
+      `<div class="choices">
+        ${[['yes','Yes','The facts genuinely support it'],['partly','Partly','Some of it is real, some is story'],['no','No','This is mostly the old fear talking']]
+          .map(([v,l,dd])=>`<button class="choice ${d.fits_facts===v?'on':''}" data-v="${v}">${l}<span class="cd">${dd}</span></button>`).join('')}
+      </div>`, navBtns());
+    scr.querySelectorAll('.choice').forEach(c=>c.onclick=()=>{ d.fits_facts=c.dataset.v; saveActive(); scr.querySelectorAll('.choice').forEach(x=>x.classList.toggle('on',x===c)); });
+    wireNav();
+    return;
+  }
+
+  /* --- grounding senses --- */
+  if(SENSES[id]){
+    const s=SENSES[id], key=s.verb==='see'?'see':s.verb;
+    const vals=d.grounding[key]||[];
+    scr.innerHTML = shell('Grounding · 5-4-3-2-1',
+      `<span class="sense-count">${s.n}</span><br>thing${s.n>1?'s':''} you can <em style="color:var(--sage);font-style:normal">${s.verb}</em>`,
+      s.prompt,
+      `<div class="sense-list">${Array.from({length:s.n},(_,i)=>`<input type="text" data-i="${i}" placeholder="${i+1}." value="${esc(vals[i]||'')}">`).join('')}</div>`,
+      navBtns(id==='g_taste'?'Grounding done':'Next sense'));
+    scr.querySelectorAll('.sense-list input').forEach(inp=>{
+      inp.addEventListener('input',()=>{ vals[+inp.dataset.i]=inp.value; d.grounding[key]=vals; saveActive(); });
+      inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const nx=inp.nextElementSibling; nx?nx.focus():$('#nx').click(); }});
+    });
+    wireNav(()=>{ if(id==='g_taste') d.grounding_completed=true; });
+    return;
+  }
+
+  /* --- pause --- */
+  if(id==='pause') return renderPause(scr);
+
+  /* --- acted on urge --- */
+  if(id==='acted'){
+    scr.innerHTML = shell('The outcome','What did you actually do?','Honest answer — this is the number your therapist cares about most, and there’s no wrong one.',
+      `<div class="choices">
+        ${[['no','Didn’t act on it','The urge passed without me feeding it'],['partly','Partly','I gave it a little ground'],['yes','Acted on it','I did the thing — that’s data, not failure']]
+          .map(([v,l,dd])=>`<button class="choice ${d.acted_on_urge===v?'on':''}" data-v="${v}">${l}<span class="cd">${dd}</span></button>`).join('')}
+      </div>`, navBtns());
+    scr.querySelectorAll('.choice').forEach(c=>c.onclick=()=>{ d.acted_on_urge=c.dataset.v; saveActive(); scr.querySelectorAll('.choice').forEach(x=>x.classList.toggle('on',x===c)); });
+    wireNav();
+    return;
+  }
+
+  /* --- escalation choose --- */
+  if(id==='escalate'){
+    scr.innerHTML = shell('Still riding the wave','The urge is still strong. That’s okay.','Waves this big sometimes need a second set. Pick one:',
+      `<div class="choices">
+        ${[['extend','Ten more minutes','Extend the pause — most urges fall within 30'],['breath','Paced breathing','In for 4, out for 6 — with a pacer'],['cold','Cold water','Splash your face / hold a cold bottle to your cheeks'],['move','Move hard for 60 seconds','Star jumps, stairs, fast walk — burn the adrenaline'],['ok','I’m actually okay','Continue without another round']]
+          .map(([v,l,dd])=>`<button class="choice" data-v="${v}">${l}<span class="cd">${dd}</span></button>`).join('')}
+      </div>`,
+      `<div style="display:flex;justify-content:space-between">
+        <button class="btn btn-quiet" id="bk" style="width:auto">Back</button>
+        <button class="btn btn-quiet" id="quit" style="width:auto">Save &amp; exit</button>
+      </div>`);
+    scr.querySelectorAll('.choice').forEach(c=>c.onclick=()=>{
+      const v=c.dataset.v;
+      if(v==='ok'){ d.escalation_used=''; d.distress_final=d.distress_after_pause; saveActive();
+        active.step = FLOW[active.mode].indexOf('reframe'); saveActive(); render(); return; }
+      if(v==='extend'){ d.escalation_used='extended pause +10'; d.pause_ends_at = Date.now()+10*60000; d.pause_minutes=(d.pause_minutes||0)+10; saveActive();
+        active.step = FLOW[active.mode].indexOf('pause'); saveActive(); render(); return; }
+      d.escalation_used = v==='breath'?'paced breathing 4-6':v==='cold'?'cold water':'intense movement 60s';
+      saveActive(); next();
+    });
+    $('#bk').onclick=back; $('#quit').onclick=abandonSession;
+    return;
+  }
+
+  /* --- escalation do --- */
+  if(id==='escalate_do'){
+    const kind = d.escalation_used;
+    let bodyHTML='', title='', sub='';
+    if(kind.startsWith('paced')){
+      title='Breathe with the circle';
+      sub='In through the nose as it grows — 4 counts. Out through the mouth as it shrinks — 6 counts. Ten rounds.';
+      bodyHTML=`<div style="text-align:center"><div class="pacer"></div><div class="pacer-lbl">in 4 · out 6</div></div>`;
+    } else if(kind.startsWith('cold')){
+      title='Cold water, now';
+      sub='Splash cold water on your face, or press something cold to your cheeks and hold your breath for 15–30 seconds. This flips a physiological switch (the dive reflex) that slows your heart rate.';
+      bodyHTML='';
+    } else {
+      title='Move — hard — for one minute';
+      sub='Star jumps, run the stairs, fast march on the spot. The point is to burn through the adrenaline, not to exercise.';
+      bodyHTML=`<div class="timer-wrap" style="flex:0;padding:16px 0"><div class="timer" id="mvT">1:00</div></div>`;
+    }
+    scr.innerHTML = shell('Reset', title, sub, bodyHTML, navBtns('Done — re-rate'));
+    if(kind.startsWith('intense')){
+      let left=60; timerInterval=setInterval(()=>{ left--; if(left<=0){clearInterval(timerInterval); $('#mvT').textContent='0:00'; return;} $('#mvT').textContent='0:'+String(left).padStart(2,'0'); },1000);
+    }
+    wireNav();
+    return;
+  }
+
+  /* --- reframe --- */
+  if(id==='reframe') return renderReframe(scr);
+
+  /* --- done --- */
+  if(id==='done'){
+    finishSession();
+    const last = entries[0];
+    const drop = (last.distress_before!=null && last.distress_final!=null) ? last.distress_before - last.distress_final : null;
+    scr.innerHTML = `
+      <div class="center anim">
+        <div class="done-mark">✓</div>
+        <h1 class="display" style="font-size:1.9rem;margin-bottom:10px">You came back.</h1>
+        <p class="sub" style="max-width:300px">
+          ${drop!=null && drop>0 ? 'Distress went from <b style="color:var(--sand)">'+last.distress_before+'</b> to <b style="color:var(--sage)">'+last.distress_final+'</b>. You rode it down.' :
+            drop!=null && drop<=0 ? 'The numbers didn’t drop this time — that happens, and logging it still counts.' :
+            'Logged and saved.'}
+        </p>
+        <p class="note">${last.synced?'Synced to your Sheet.':'Saved on this phone — will sync when you’re online.'}</p>
+      </div>
+      <div class="foot anim d1">
+        <button class="btn btn-primary" onclick="view='home';render()">Done</button>
+      </div>`;
+    return;
+  }
+
+  scr.innerHTML = '<p class="sub">Unknown step: '+esc(id)+'</p>';
+}
+
+/* ---------- pause screen ---------- */
+function renderPause(scr){
+  const d = active.data;
+
+  // not started yet → duration picker
+  if(!d.pause_ends_at || d.pause_done_ack){
+    d.pause_done_ack = false;
+    const def = d.pause_minutes || settings.pauseDefault || 20;
+    scr.innerHTML = shell('The pause','Now — step away from it.',
+      'Urges rise, crest, and fall on their own if you don’t feed them. Give this one time to break. Make tea, stretch, sit by a window. Don’t solve anything.',
+      `<div class="durs">${[5,10,20,30].map(m=>`<button class="chip ${m===def?'on':''}" data-m="${m}">${m} min</button>`).join('')}</div>
+       <p class="note" style="text-align:center">The timer keeps counting even if you close the app.</p>`,
+      `<button class="btn btn-sand" id="startP">Start the pause</button>
+       <button class="btn btn-quiet" id="skipP">Skip the pause (it gets logged)</button>
+       <div style="display:flex;justify-content:space-between">
+         <button class="btn btn-quiet" id="bk" style="width:auto">Back</button>
+         <button class="btn btn-quiet" id="quit" style="width:auto">Save &amp; exit</button>
+       </div>`);
+    let mins = def;
+    scr.querySelectorAll('.durs .chip').forEach(c=>c.onclick=()=>{ mins=+c.dataset.m; scr.querySelectorAll('.durs .chip').forEach(x=>x.classList.toggle('on',x===c)); });
+    $('#startP').onclick=()=>{
+      d.pause_minutes = (d.pause_minutes||0) + mins;
+      d.pause_ends_at = Date.now() + mins*60000;
+      saveActive();
+      requestNotifyPermission();
+      render();
+    };
+    $('#skipP').onclick=()=>{ d.pause_completed=false; d.pause_minutes=d.pause_minutes||0; saveActive(); next(); };
+    $('#bk').onclick=back; $('#quit').onclick=abandonSession;
+    return;
+  }
+
+  // running or finished — derived from stored timestamp, survives app kill
+  const remaining = d.pause_ends_at - Date.now();
+  if(remaining <= 0){
+    d.pause_completed = true; saveActive();
+    scr.innerHTML = shell('The pause','The pause is complete.','However long you were away — the time passed, and you’re back. Let’s see where the urge is now.',
+      `<div class="timer-wrap" style="flex:0;padding:10px 0"><div class="timer" style="color:var(--sage)">0:00</div></div>`,
+      `<button class="btn btn-primary" id="nx">Check back in</button>`);
+    $('#nx').onclick=()=>{ next(); };
+    return;
+  }
+
+  scr.innerHTML = shell('The pause','Let it crest.','You don’t have to watch the timer. A notification will try to reach you — and the clock keeps running even if you leave.',
+    `<div class="timer-wrap" style="flex:0;padding:6px 0 0">
+       <div class="timer" id="pT">--:--</div>
+       <div style="text-align:center"><div class="pacer" id="pacer"></div><div class="pacer-lbl">breathe with it · in 4 · out 6</div></div>
+     </div>`,
+    `<button class="btn btn-ghost" id="endP">End pause early</button>
+     <button class="btn btn-quiet" id="quit">Save &amp; exit — the timer keeps running</button>`);
+  const tick=()=>{
+    const ms = d.pause_ends_at - Date.now();
+    if(ms<=0){
+      clearInterval(timerInterval);
+      d.pause_completed=true; saveActive();
+      notifyPauseDone();
+      render(); return;
+    }
+    const m=Math.floor(ms/60000), s=Math.floor(ms%60000/1000);
+    $('#pT').textContent = m+':'+String(s).padStart(2,'0');
+  };
+  tick(); timerInterval=setInterval(tick,500);
+  $('#endP').onclick=()=>{ d.pause_completed=false; saveActive(); next(); };
+  $('#quit').onclick=()=>{ view='home'; render(); };  // keep session alive, timer derived from timestamp
+}
+
+function requestNotifyPermission(){
+  if('Notification' in window && Notification.permission==='default'){
+    Notification.requestPermission().catch(()=>{});
+  }
+}
+function notifyPauseDone(){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  if(navigator.serviceWorker && navigator.serviceWorker.ready){
+    navigator.serviceWorker.ready.then(reg=>{
+      reg.showNotification('Anchor', { body:'Your pause is complete. Come back when you’re ready.', icon:'./icons/icon-192.png', badge:'./icons/icon-192.png', tag:'anchor-pause' });
+    }).catch(()=>{});
+  }
+}
+
+/* ---------- reframe ---------- */
+async function fetchReframe(d){
+  const out = await postAPI({action:'reframe', entry:{
+    trigger:d.trigger, fears:d.fears, floatback:d.floatback,
+    interpretation:d.interpretation, facts_known:d.facts_known,
+    alt_explanation:d.alt_explanation, fits_facts:d.fits_facts,
+    emotions:(d.emotions||[]).join(', ')
+  }});
+  if(!out.stories || !out.stories.length) throw new Error('No stories returned');
+  return out.stories;
+}
+
+function renderReframe(scr){
+  const d = active.data;
+  const finishUI = (storiesHTML, seed)=> {
+    scr.innerHTML = shell('The new story','Which story will you carry instead?',
+      storiesHTML===null
+        ? 'The AI isn’t reachable right now — so build it yourself from your own evidence. You already wrote the raw material.'
+        : 'Three readings of the same facts. Tap the one that lands, then make it yours — edit it into your own words.',
+      (storiesHTML===null ? `
+        <div class="card"><div class="note" style="color:var(--muted)">
+          <b style="color:var(--sage)">Your other explanation:</b> ${esc(d.alt_explanation)||'<i>—</i>'}<br><br>
+          <b style="color:var(--sage)">What you actually know:</b> ${esc(d.facts_known)||'<i>—</i>'}
+        </div></div>` : storiesHTML) +
+      `<label class="fl">The story you’ll keep</label>
+       <textarea id="chosen" placeholder="Write the story you’re choosing to stand on…">${esc(d.chosen_story || seed || '')}</textarea>`,
+      navBtns());
+    scr.querySelectorAll('.story-card').forEach(c=>{
+      c.onclick=()=>{
+        scr.querySelectorAll('.story-card').forEach(x=>x.classList.toggle('on',x===c));
+        $('#chosen').value = c.dataset.story;
+        d.chosen_story = c.dataset.story; saveActive();
+      };
+    });
+    $('#chosen').addEventListener('input',()=>{ d.chosen_story=$('#chosen').value; saveActive(); });
+    wireNav(()=>{ d.chosen_story=$('#chosen').value.trim(); });
+  };
+
+  // already fetched this session?
+  if(d.ai_suggestions){
+    let stories=[]; try{ stories=JSON.parse(d.ai_suggestions);}catch(e){}
+    if(stories.length){
+      finishUI(stories.map(s=>`<button class="card story-card" data-story="${esc(s.story)}"><span class="s">${esc(s.story)}</span><span class="b">↳ ${esc(s.based_on||'from your facts')}</span></button>`).join(''), '');
+      return;
+    }
+  }
+
+  scr.innerHTML = shell('The new story','Finding other readings…','Weighing your own evidence — a moment.', '<div class="spin"></div>','');
+  fetchReframe(d).then(stories=>{
+    d.ai_suggestions = JSON.stringify(stories); saveActive();
+    if(stepId()!=='reframe') return;      // user navigated away
+    finishUI(stories.map(s=>`<button class="card story-card" data-story="${esc(s.story)}"><span class="s">${esc(s.story)}</span><span class="b">↳ ${esc(s.based_on||'from your facts')}</span></button>`).join(''), '');
+  }).catch(err=>{
+    if(stepId()!=='reframe') return;
+    finishUI(null, d.alt_explanation||'');
+  });
+}
+
+/* ---------- history ---------- */
+function renderHistory(scr){
+  if(!entries.length){
+    scr.innerHTML = `<div class="center anim"><h1 class="display" style="font-size:1.7rem;margin-bottom:8px">No check-ins yet</h1><p class="sub">Your log will live here, and in your Sheet.</p></div>
+    <div class="foot"><button class="btn btn-ghost" onclick="view='home';render()">Back</button></div>`;
+    return;
+  }
+  const unsynced = entries.filter(e=>!e.synced).length;
+  scr.innerHTML = `
+    <div class="body anim">
+      <div class="kicker">Your log</div>
+      <h1 class="q display" style="font-size:1.7rem">${entries.length} check-in${entries.length===1?'':'s'}</h1>
+      <p class="sub">${unsynced ? unsynced+' still on this phone — they’ll sync when online.' : 'All synced to your Sheet.'}</p>
+      <div id="hlist">
+      ${entries.map((e,i)=>`
+        <button class="hrow" data-i="${i}">
+          <div class="when">
+            <div class="d">${fmtDate(e.started_at)} ${e.mode==='flooded'?'<span class="tag flood">flooded</span>':''} ${e.abandoned?'<span class="tag unsynced">partial</span>':''}</div>
+            <div class="t">${fmtTime(e.started_at)} · ${esc((e.trigger||'').slice(0,42))||'—'}${(e.trigger||'').length>42?'…':''}</div>
+          </div>
+          <div class="arc">${e.distress_before!=null?e.distress_before:'–'}<small> → </small>${e.distress_final!=null?e.distress_final:'–'}</div>
+          <span class="tag ${e.synced?'synced':'unsynced'}">${e.synced?'✓':'…'}</span>
+        </button>`).join('')}
+      </div>
+    </div>
+    <div class="foot">
+      ${unsynced?'<button class="btn btn-sand" id="syncNow">Sync now</button>':''}
+      <button class="btn btn-ghost" onclick="view='home';render()">Back</button>
+    </div>`;
+  $('#syncNow') && ($('#syncNow').onclick=()=>syncQueue());
+  scr.querySelectorAll('.hrow').forEach(r=>r.onclick=()=>renderDetail(+r.dataset.i));
+}
+
+function renderDetail(i){
+  const e = entries[i], scr=$('#screen');
+  const F = (label,val)=>`<dt>${label}</dt><dd class="${val?'':'empty'}">${val?esc(val):'not filled'}</dd>`;
+  const g = e.grounding||{};
+  const gs = ['see','touch','hear','smell','taste'].map(k=>(g[k]||[]).filter(Boolean).join(', ')).filter(Boolean).join(' · ');
+  scr.innerHTML = `
+    <div class="body anim">
+      <div class="kicker">${fmtDate(e.started_at)} · ${fmtTime(e.started_at)}</div>
+      <h1 class="q display" style="font-size:1.5rem">${esc(e.trigger||'(no trigger written)')}</h1>
+      <dl class="detail">
+        ${F('Distress arc', [e.distress_before,e.distress_after_grounding,e.distress_after_pause,e.distress_final].filter(v=>v!=null).join(' → '))}
+        ${F('Body',[...(e.body||[]),e.body_other].filter(Boolean).join(', '))}
+        ${F('Emotions',[...(e.emotions||[]),e.emotions_other].filter(Boolean).join(', '))}
+        ${F('Fears',e.fears)}
+        ${F('When before',e.floatback)}
+        ${F('Urges',[...(e.urges||[]),e.urges_other].filter(Boolean).join(', ')+(e.urge_before!=null?' ('+e.urge_before+'/10 → '+(e.urge_after!=null?e.urge_after+'/10':'?')+')':''))}
+        ${F('Telling myself',e.interpretation)}
+        ${F('Actually know',e.facts_known)}
+        ${F('Other explanation',e.alt_explanation)}
+        ${F('Emotion fits facts',e.fits_facts)}
+        ${F('Grounding',gs)}
+        ${F('Pause',(e.pause_minutes||0)+' min · '+(e.pause_completed?'completed':'skipped/cut short'))}
+        ${F('Acted on urge',e.acted_on_urge)}
+        ${F('What helped',e.what_helped)}
+        ${F('Reset used',e.escalation_used)}
+        ${F('Story kept',e.chosen_story)}
+        ${F('Closing note',e.closing_note)}
+      </dl>
+    </div>
+    <div class="foot"><button class="btn btn-ghost" onclick="renderHistory($('#screen'))">Back to log</button></div>`;
+}
+
+/* ---------- settings ---------- */
+function renderSettings(scr){
+  scr.innerHTML = `
+    <div class="body anim">
+      <div class="kicker">Settings</div>
+      <h1 class="q display" style="font-size:1.7rem">Wiring</h1>
+      <p class="sub">One-time setup — see SETUP.md in the project for the walkthrough.</p>
+      <label class="fl">Apps Script URL (ends in /exec)</label>
+      <input type="url" id="sEnd" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(settings.endpoint)}">
+      <label class="fl">App secret</label>
+      <input type="password" id="sSec" placeholder="the APP_SECRET you set in Script Properties" value="${esc(settings.secret)}">
+      <label class="fl">Default pause length</label>
+      <div class="chips" id="pDef">${[5,10,20,30].map(m=>`<button class="chip ${settings.pauseDefault===m?'on':''}" data-m="${m}">${m} min</button>`).join('')}</div>
+      <label class="fl">Notifications</label>
+      <p class="note">${'Notification' in window ? 'Permission: <b>'+Notification.permission+'</b> — asked for when you first start a pause.' : 'Not supported in this browser.'}</p>
+      <hr class="sep">
+      <p class="note">Entries live in this phone’s storage and in your private Google Sheet. Nothing else sees them. The AI step sends only that entry’s text to your own Apps Script, which calls Claude with a key that never leaves Google’s side.</p>
+    </div>
+    <div class="foot">
+      <button class="btn btn-primary" id="sSave">Save</button>
+      <button class="btn btn-ghost" id="sTest">Test connection</button>
+      <button class="btn btn-quiet" onclick="view='home';render()">Back</button>
+    </div>`;
+  scr.querySelectorAll('#pDef .chip').forEach(c=>c.onclick=()=>{ settings.pauseDefault=+c.dataset.m; scr.querySelectorAll('#pDef .chip').forEach(x=>x.classList.toggle('on',x===c)); });
+  $('#sSave').onclick=()=>{ settings.endpoint=$('#sEnd').value.trim(); settings.secret=$('#sSec').value.trim(); saveSettings(); toast('Saved'); syncQueue(); };
+  $('#sTest').onclick=async()=>{
+    settings.endpoint=$('#sEnd').value.trim(); settings.secret=$('#sSec').value.trim(); saveSettings();
+    try{ const out=await postAPI({action:'ping'}); toast(out.message||'Connected ✓'); }
+    catch(err){ toast('Could not reach it: '+err.message); }
+  };
+}
+
+/* ---------- top nav ---------- */
+$('#btnHistory').onclick=()=>{ if(view==='flow'){ toast('Finish or exit the check-in first'); return;} view='history'; render(); };
+$('#btnSettings').onclick=()=>{ if(view==='flow'){ toast('Finish or exit the check-in first'); return;} view='settings'; render(); };
+$('#brand').onclick=()=>{ if(view!=='flow'){ view='home'; render(); } };
+
+/* ---------- boot ---------- */
+if(active){ view='flow'; }        // resume straight into the flow (timer derives from timestamp)
+render();
+syncQueue();
+
+if('serviceWorker' in navigator && location.protocol!=='file:'){
+  navigator.serviceWorker.register('./sw.js').then(reg=>reg.update()).catch(()=>{});
+}
+
+/* ---------- test hook (mirrors Cue's __cue) ---------- */
+window.__anchor = {
+  get state(){ return {view, active, entries, settings}; },
+  go(id){ if(!active) startSession('full'); const i=FLOW[active.mode].indexOf(id); if(i>=0){ active.step=i; saveActive(); render(); } },
+  start(mode){ startSession(mode||'full'); },
+  view(v){ view=v; render(); },
+  set(patch){ Object.assign(active.data, patch); saveActive(); render(); },
+  setPause(msFromNow){ active.data.pause_ends_at = Date.now()+msFromNow; saveActive(); render(); },
+  fill(){
+    if(!active) startSession('full');
+    Object.assign(active.data,{
+      trigger:'Partner hasn’t replied to my text since this morning',
+      body:['Chest tight','Heart racing'], emotions:['Fear','Abandonment'], distress_before:7,
+      fears:'She doesn’t love me anymore', floatback:'When my ex ghosted me in 2019',
+      urges:['Overthink it','Check my phone'], urge_before:8,
+      interpretation:'If she loved me she’d have answered by now',
+      facts_known:'No reply in 4 hours. She said she had back-to-back meetings today.',
+      alt_explanation:'She’s slammed at work and hasn’t looked at her phone',
+      fits_facts:'no',
+      grounding:{see:['window','mug','tree','lamp','book'],touch:['desk','sleeve','chair','floor'],hear:['traffic','fan','birds'],smell:['coffee','air'],taste:['mint']},
+      grounding_completed:true, distress_after_grounding:5,
+      pause_minutes:20, pause_completed:true, urge_after:3, distress_after_pause:3,
+      acted_on_urge:'no', what_helped:'The grounding + not checking her last-seen',
+      chosen_story:'She’s busy. Four quiet hours is not a verdict on us.'
+    });
+    saveActive(); render();
+  },
+  flush(){ return syncQueue(); },
+  reset(){ LS.del(ACTIVE_KEY); LS.del(ENTRIES_KEY); active=null; entries=[]; view='home'; render(); }
+};
+</script>
+</body>
+</html>
