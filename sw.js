@@ -1,9 +1,15 @@
-/* Anchor service worker — offline app shell */
-const CACHE = 'anchor-v1';
+/* Anchor service worker: offline app shell */
+const CACHE = 'anchor-v2';
 const SHELL = [
   './',
   './index.html',
   './manifest.json',
+  './js/content.js',
+  './js/store.js',
+  './js/coach.js',
+  './js/checkin.js',
+  './js/views.js',
+  './js/boot.js',
   './fonts/Fraunces.woff2',
   './fonts/Karla.woff2',
   './icons/icon-192.png',
@@ -28,7 +34,7 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin || e.request.method !== 'GET') return;
 
   // App shell (navigations + index): network first so updates land, cache fallback for offline.
-  if (e.request.mode === 'navigate' || url.pathname.endsWith('/index.html')) {
+  if (e.request.mode === 'navigate' || url.pathname.endsWith('/index.html') || url.pathname.endsWith('.js')) {
     e.respondWith(
       fetch(e.request)
         .then(res => {

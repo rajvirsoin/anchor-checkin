@@ -1,7 +1,7 @@
 {
-  "name": "Anchor — body skill check-in",
+  "name": "Anchor",
   "short_name": "Anchor",
-  "description": "A guided body-skill check-in for the moments that grab you. Logs to your private Google Sheet.",
+  "description": "A daily practice for secure self-worth: morning promise, catch, evening reflection. Logs to your private Google Sheet.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

@@ -1,53 +1,43 @@
-# Anchor — one-time setup
+# Anchor: setup
 
-Anchor is a phone app (PWA) that walks you through your therapist's body skill and logs
-every check-in to a private Google Sheet. Entries save on the phone first and sync when
-online, so it works with no signal.
+Anchor is a phone app (PWA) for a year-long self-worth practice: a morning promise, Catch for the moments that hit, an evening shadow-work reflection that builds on what you wrote before, a weekly review with a digest for therapy, and a coach (Claude) that reflects and asks but never praises. Everything saves on the phone first and syncs to your private Google Sheet.
 
-Three things to wire up, ~10 minutes total.
+The research behind every feature is in `RESEARCH.md`.
 
-## 1. The Google Sheet + backend
+## If you already use Anchor (upgrading)
 
-1. Create a new Google Sheet — name it e.g. **Anchor — check-in log**.
-2. In the Sheet: **Extensions → Apps Script**. Delete the placeholder code, paste the whole
-   of `apps-script/Code.gs`, and **Save**.
-3. Gear icon (**Project Settings**) → **Script Properties** → add two properties:
-   | Property | Value |
-   |---|---|
-   | `APP_SECRET` | any long random string you invent (you'll paste it into the app too) |
-   | `ANTHROPIC_API_KEY` | your API key from console.anthropic.com (for the reframe step) |
-   These live only inside your Google account — never in the app, never in this repo.
-4. **Deploy → New deployment** → type **Web app** →
-   *Execute as:* **Me** · *Who has access:* **Anyone** → **Deploy** → authorize → copy the
-   URL ending in `/exec`.
-5. Test: open that `/exec` URL in a browser — it should say *"Anchor endpoint is live."*
+Your phone is already connected to the Sheet. Two things to do, about 5 minutes:
 
-The `Log` and `Weekly Summary` tabs are created automatically on first write.
+1. **Update the backend.** Open your Sheet "Anchor — check-in log" → **Extensions → Apps Script**. Select all of the old code, paste the whole of `apps-script/Code.gs`, and **Save**.
+2. **Add your Claude key.** Gear icon (**Project Settings**) → **Script Properties** → add `ANTHROPIC_API_KEY` with your key from console.anthropic.com. (`APP_SECRET` is already there.)
+3. **Redeploy at the same URL.** **Deploy → Manage deployments** → pencil icon on your existing deployment → *Version:* **New version** → **Deploy**. Google will ask you to authorize again, because the app can now add reminder events to your Calendar. Allow it.
+4. On your phone: open Anchor → **You → Settings → Test connection**. It should say *Coach is on*.
 
-## 2. The weekly therapist summary
+Until the key is set, everything still works: the coach falls back to built-in questions.
 
-In the Apps Script editor: **Triggers** (clock icon, left sidebar) → **Add Trigger** →
-- function: `buildWeeklySummary`
-- event source: **Time-driven** → **Week timer** → **Every Sunday**, 6–7pm
+## First open
 
-Each Sunday it appends one row to **Weekly Summary**: entry count, average distress
-before → after grounding → final (and the drop), % of urges acted on, % pauses completed,
-top triggers / emotions / fears, and what helped most. Show your therapist that tab.
+Anchor walks you through five quick screens: Day 1 of your year, what your coach should know about you, your if-then plans, and reminder times. For "What your coach knows about you", paste the profile in `private/coach-profile.txt` (that folder is never published) and edit it in your own words.
 
-## 3. The app on your phone
+## Reminders
 
-1. Open the app URL in Safari (iPhone) or Chrome (Android).
-2. **Settings** (top right) → paste the `/exec` URL and your `APP_SECRET` → **Test
-   connection** → **Save**.
-3. Share button → **Add to Home Screen**. It now opens full-screen like a native app.
+Set the times in the app (**You → Settings → Reminders**), then tap **Put these reminders in my Google Calendar**. Anchor creates three repeating 10-minute events (morning, evening, weekly) with a notification at the start time. Change the times whenever you like and tap the button again: the old events are replaced. **Remove the reminders** deletes them.
 
-### Notes
+## The Sheet
 
-- **Notifications:** the app asks permission the first time you start a pause. On iPhone the
-  20-minute alert usually arrives, but iOS can drop it if the app has been closed a while —
-  the timer itself is bulletproof: it's a saved timestamp, so reopening the app always shows
-  the true state, even days later.
-- **Privacy:** entries live in your phone's storage and your own Sheet. The AI step sends
-  only that entry's text to *your* Apps Script, which calls Claude with a key that never
-  leaves Google's side. If the AI is unreachable the step falls back to self-guided prompts.
-- **If a sync fails** it just stays queued — open History → **Sync now** whenever.
+New tabs appear automatically:
+- **Records**: everything the app saves, one row per item. This is what **Restore everything from my Sheet** reads on a new phone.
+- **Therapy Digest**: one row per weekly review, with the digest written for your therapist.
+- **Log** and **Weekly Summary**: the body-skill check-ins, as before.
+
+## Fresh setup (new Sheet)
+
+1. Create a Google Sheet. **Extensions → Apps Script**, paste `apps-script/Code.gs`, Save.
+2. **Project Settings → Script Properties**: add `APP_SECRET` (a long random string you invent) and `ANTHROPIC_API_KEY`.
+3. **Deploy → New deployment → Web app**, *Execute as:* Me, *Who has access:* Anyone. Authorize, copy the `/exec` URL.
+4. Optional: **Triggers → Add Trigger** → `buildWeeklySummary`, time-driven, weekly, Sunday 6 to 7pm.
+5. On your phone: open the app, **You → Settings**, paste the URL and secret, **Test connection**, **Save**. Then **Share → Add to Home Screen**.
+
+## Privacy
+
+Your words live on your phone and in your own Sheet. The repo is public, so nothing personal is ever put in the code. The coach sends only what each question needs to your own Apps Script, which calls Claude with a key that stays in Google's Script Properties.
